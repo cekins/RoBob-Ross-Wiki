@@ -35,7 +35,7 @@ def get_nearest_color(pixel):
         if d < min_color_dist:
             min_color_dist = d
             min_color = color
-    return min_color
+    return COLORS[min_color]
 
 
 def get_output_size(image):
@@ -43,7 +43,7 @@ def get_output_size(image):
     width = image.shape[1]
     max_dim = max(height, width)
     if max_dim <= MAX_PIXELS:
-        return cv2.GetSize(image)
+        return image.shape[0], image.shape[1]
     scale_factor = MAX_PIXELS / float(max_dim)
     return int(round(width * scale_factor)), int(round(height* scale_factor))
 
@@ -63,20 +63,64 @@ def get_average_color(image, i, j):
 
 
 
-def transform_image(image):
+def reduce_colors(image):
     for i in range(image.shape[0]):
         for j in range(image.shape[1]):
-            color = get_nearest_color(image[i, j])
-            image[i, j] = COLORS[color]
+            image[i, j] = get_nearest_color(image[i, j])
+
+def white_2_black(image):
+    for i in range(image.shape[0]):
+        for j in range(image.shape[1]):
+            if np.array_equal(image[i, j], [255, 255, 255]):
+                image[i, j] = [0, 0, 0]
+
+def get_black_image(image):
+    return np.zeros((image.shape[0], image.shape[1]), np.uint8)
+
+def isolate_color(image, color):
+    res = get_black_image(image)
+    color_pixel = COLORS[color]
+    for i in range(image.shape[0]):
+        for j in range(image.shape[1]):
+            if np.array_equal(image[i, j], color_pixel):
+                res[i, j] = 255
+    return res
+
+def find_color_contours(image):
+    res = get_black_image(image) 
+    for color in COLORS:
+        tmp = isolate_color(image, color)
+        im2, contours, heirarchy = cv2.findContours(tmp, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
+        for i in range(len(contours)):
+            cv2.drawContours(res, contours, i, 255)
+    return res
+
+def get_cc_points(labels):
+    connected_components = [[] for i in range(len(labels))]
+    for i in range(labels.shape[0]):
+        for j in range(labels.shape[1]):
+            connected_components[labels[i, j]].append((i, j))
+    return connected_components
 
 
 
 if __name__ == '__main__':
-    img = cv2.imread('fruit.jpg')
+    img = cv2.imread('city.jpg')
     dst_size = get_output_size(img)
-    dst = cv2.resize(img, dst_size)
-    edges = cv2.Canny(dst, 100, 200)
-    transform_image(dst)
-    cv2.imshow('image', dst)
+    img = cv2.resize(img, dst_size)
+    orig = deepcopy(img)
+
+    img = cv2.GaussianBlur(img, (0, 0), 1)
+    reduce_colors(img)
+    tmp = find_color_contours(img)
+    output = cv2.connectedComponentsWithStats(tmp)
+    stats = output[2]
+    labels = output[1]
+    cc_points = get_cc_points(labels)
+    sort(cc_points, key=len)
+    adj_mat = [[0] * len(labels) for i in range(len(labels))]
+
+    cv2.imshow('contours', tmp)
+    cv2.imshow('image', img)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
