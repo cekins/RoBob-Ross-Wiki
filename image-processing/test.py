@@ -102,7 +102,12 @@ def get_cc_points(labels):
             connected_components[labels[i, j]].append((i, j))
     return connected_components
 
-
+def contains(cc_1, cc_2):
+    for i in cc_1:
+        for j in cc_2:
+            if cmp(i, j):
+                return True
+    return False
 
 if __name__ == '__main__':
     img = cv2.imread('city.jpg')
@@ -117,9 +122,13 @@ if __name__ == '__main__':
     stats = output[2]
     labels = output[1]
     cc_points = get_cc_points(labels)
-    sort(cc_points, key=len)
+    cc_points.sort(key=len, reverse=True)
     adj_mat = [[0] * len(labels) for i in range(len(labels))]
-
+    for i in range(len(cc_points) - 1):
+        for j in range(i + 1, len(cc_points)):
+            if contains(cc_points[i], cc_points[j]):
+                adj_mat[i][j] = 1
+    print sum([sum(i) for i in adj_mat])
     cv2.imshow('contours', tmp)
     cv2.imshow('image', img)
     cv2.waitKey(0)
