@@ -77,6 +77,9 @@ def white_2_black(image):
 def get_black_image(image):
     return np.zeros((image.shape[0], image.shape[1]), np.uint8)
 
+def get_black_color_image(image):
+    return np.zeros(image.shape, np.uint8)
+
 def isolate_color(image, color):
     res = get_black_image(image)
     color_pixel = COLORS[color]
@@ -86,21 +89,26 @@ def isolate_color(image, color):
                 res[i, j] = 255
     return res
 
-def find_color_contours(image):
-    res = get_black_image(image) 
+def get_white_points(image):
+    res = []
+    for i in range(image.shape[0]):
+        for j in range(image.shape[1]):
+            if image[i, j] == 255:
+                res.append((i, j))
+    return res
+
+def find_color_regions(image):
+    res = {}
     for color in COLORS:
+        res[color] = []
         tmp = isolate_color(image, color)
         im2, contours, heirarchy = cv2.findContours(tmp, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
         for i in range(len(contours)):
-            cv2.drawContours(res, contours, i, 255)
+            tmp2 = get_black_image(image)
+            cv2.drawContours(tmp2, contours, i, 255, -1)
+            res[color].append(get_white_points(tmp2))
     return res
 
-def get_cc_points(labels):
-    connected_components = [[] for i in range(len(labels))]
-    for i in range(labels.shape[0]):
-        for j in range(labels.shape[1]):
-            connected_components[labels[i, j]].append((i, j))
-    return connected_components
 
 def contains(cc_1, cc_2):
     for i in cc_1:
@@ -109,27 +117,27 @@ def contains(cc_1, cc_2):
                 return True
     return False
 
+def restore_image(regions, image):
+    res = get_black_color_image(image)
+    for color in regions:
+        pix_val = COLORS[color]
+        for region in regions[color]:
+            for pixel in region:
+                res[pixel] = pix_val
+    return res
+            
+
+
+
 if __name__ == '__main__':
     img = cv2.imread('city.jpg')
     dst_size = get_output_size(img)
     img = cv2.resize(img, dst_size)
     orig = deepcopy(img)
-
     img = cv2.GaussianBlur(img, (0, 0), 1)
     reduce_colors(img)
-    tmp = find_color_contours(img)
-    output = cv2.connectedComponentsWithStats(tmp)
-    stats = output[2]
-    labels = output[1]
-    cc_points = get_cc_points(labels)
-    cc_points.sort(key=len, reverse=True)
-    adj_mat = [[0] * len(labels) for i in range(len(labels))]
-    for i in range(len(cc_points) - 1):
-        for j in range(i + 1, len(cc_points)):
-            if contains(cc_points[i], cc_points[j]):
-                adj_mat[i][j] = 1
-    print sum([sum(i) for i in adj_mat])
-    cv2.imshow('contours', tmp)
-    cv2.imshow('image', img)
+    regions = find_color_regions(img)
+    tmp = restore_image(regions, img)
+    cv2.imshow('image', tmp)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
