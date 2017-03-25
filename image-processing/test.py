@@ -1,23 +1,26 @@
 import cv2
 import numpy as np
 from copy import deepcopy
+import cProfile
+import Queue
+from pprint import pprint
 
 MAX_PIXELS = 500
 
 COLORS = {
-    "red": (255, 0, 0),
-    "blue": (0, 0, 255),
-    "yellow": (255, 255, 0),
-    "gray": (128, 128, 128),
-    "lime": (0, 255, 0),
-    "green": (0, 128, 0),
-    "purple": (128, 0, 128),
-    "navy": (0, 0, 128),
-    "white": (255, 255, 255),
-    "black": (0, 0, 0),
-    "cyan": (0, 255, 255),
-    "teal": (0, 128, 128),
-    "orange": (265, 165, 0)
+    'red': (255, 0, 0),
+    'blue': (0, 0, 255),
+    'yellow': (255, 255, 0),
+    'gray': (128, 128, 128),
+    'lime': (0, 255, 0),
+    'green': (0, 128, 0),
+    'purple': (128, 0, 128),
+    'navy': (0, 0, 128),
+    'white': (255, 255, 255),
+    'black': (0, 0, 0),
+    'cyan': (0, 255, 255),
+    'teal': (0, 128, 128),
+    'orange': (255, 165, 0)
 }
 
 def get_distance(color1, color2):
@@ -27,8 +30,8 @@ def get_distance(color1, color2):
     return np.sqrt(dsq)
 
 def get_nearest_color(pixel):
-    min_color = "red"
-    min_color_dist = float("inf")
+    min_color = 'red'
+    min_color_dist = float('inf')
     for color in COLORS:
         value = COLORS[color]
         d = get_distance(pixel, value)
@@ -90,11 +93,31 @@ def isolate_color(image, color):
     return res
 
 def get_white_points(image):
+    ccs = cv2.connectedComponentsWithStats(image)
+    centroids = np.uint32(ccs[3].round())
+    centroid = (-1, -1)
+    for c in centroids:
+        if image[c[1], c[0]] == 255:
+            centroid = (c[1], c[0])
+    if np.array_equal(centroid, [-1, -1]):
+        return []
+    q = Queue.Queue()
+    q.put(centroid)
     res = []
-    for i in range(image.shape[0]):
-        for j in range(image.shape[1]):
-            if image[i, j] == 255:
-                res.append((i, j))
+    visited = get_black_image(image)
+    visited[centroid] = 255
+    while not q.empty():
+        cur = q.get()
+        res.append(cur)
+        neighbors = []
+        for i in range(-1, 2):
+            if 0 <= cur[0] + i < image.shape[0]:
+                for j in range(-1, 2):
+                    if 0 <= cur[1] + j < image.shape[1]:
+                        tmp = (cur[0] + i, cur[1] + j)
+                        if image[tmp] == 255 and visited[tmp] == 0:
+                            visited[tmp] = 255
+                            q.put((cur[0] + i, cur[1] + j))
     return res
 
 def find_color_regions(image):
@@ -128,9 +151,8 @@ def restore_image(regions, image):
             
 
 
-
-if __name__ == '__main__':
-    img = cv2.imread('city.jpg')
+def process(filename):
+    img = cv2.imread(filename)
     dst_size = get_output_size(img)
     img = cv2.resize(img, dst_size)
     orig = deepcopy(img)
@@ -141,3 +163,6 @@ if __name__ == '__main__':
     cv2.imshow('image', tmp)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
+
+if __name__ == '__main__':
+    process('city.jpg')
