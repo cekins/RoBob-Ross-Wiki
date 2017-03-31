@@ -171,8 +171,8 @@ def process(filename):
     regions = find_color_regions(img)
     tmp = restore_image(regions, img)
     cv2.imshow('image', tmp)
-    cv2.waitKey(0)
+    cv2.waitKey(1)
     cv2.destroyAllWindows()
 
 if __name__ == '__main__':
-    process('city.jpg')
+    cProfile.run("process('city.jpg')")
