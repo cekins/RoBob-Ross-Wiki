@@ -23,6 +23,11 @@ COLORS = {
     'orange': (255, 165, 0)
 }
 
+def get_color_from_pixel(pixel):
+    for color in COLORS:
+        if np.array_equal(pixel, COLORS[color]):
+            return color
+    return color
 
 # gets the Euclidian distance between two colors
 def get_distance(color1, color2):
@@ -129,16 +134,39 @@ def get_white_points(image):
                             q.put((cur[0] + i, cur[1] + j))
     return res
 
+def get_neighbors(coord, shape):
+    neighbors = []
+    for i in range(-1, 2):
+        if 0 <= coord[0] + i < shape[0]:
+            for j in range(-1, 2):
+                if 0 <= coord[1] + j < shape[1]:
+                    neighbors.append((coord[0] + i, coord[1] + j))
+    return neighbors
+
+
 def find_color_regions(image):
     res = {}
-    for color in COLORS:
-        res[color] = []
-        tmp = isolate_color(image, color)
-        im2, contours, heirarchy = cv2.findContours(tmp, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
-        for i in range(len(contours)):
-            tmp2 = get_black_image(image)
-            cv2.drawContours(tmp2, contours, i, 255, -1)
-            res[color].append(get_white_points(tmp2))
+    visited = np.zeros(image.shape[:2], np.uint8)
+    q = Queue.Queue()
+    for i in range(image.shape[0]):
+        for j in range(image.shape[1]):
+            if visited[i, j] == 255:
+                continue
+            visited[i, j] = 255
+            q.put((i, j))
+            color = get_color_from_pixel(image[i, j])
+            if color not in res:
+                res[color] = []
+            region = []
+            while not q.empty():
+                cur = q.get()
+                region.append(cur)
+                neighbors = get_neighbors(cur, image.shape)
+                for neighbor in neighbors:
+                    if visited[neighbor] == 0 and np.array_equal(image[cur], image[neighbor]):
+                        visited[neighbor] = 255
+                        q.put(neighbor)
+            res[color].append(region)
     return res
 
 
