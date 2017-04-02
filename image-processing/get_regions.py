@@ -54,9 +54,9 @@ def get_output_size(image, max_pixels):
     width = image.shape[1]
     max_dim = max(height, width)
     if max_dim <= max_pixels:
-        return image.shape[0], image.shape[1]
+        return image.shape[1], image.shape[0]
     scale_factor = max_pixels / float(max_dim)
-    return int(round(width * scale_factor)), int(round(height* scale_factor))
+    return int(round(width * scale_factor)), int(round(height * scale_factor))
 
 # Not in use
 def get_average_color(image, i, j):
