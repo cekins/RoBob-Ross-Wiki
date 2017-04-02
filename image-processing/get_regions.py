@@ -5,7 +5,7 @@ import cProfile
 import Queue
 from pprint import pprint
 import sys
-
+import json
 
 COLORS = {
     'red': (255, 0, 0),
@@ -150,7 +150,7 @@ def find_color_regions(image):
     q = Queue.Queue()
     for i in range(image.shape[0]):
         for j in range(image.shape[1]):
-            if image[i, j] == 0 or visited[i, j] == 255:
+            if visited[i, j] == 255:
                 continue
             visited[i, j] = 255
             q.put((i, j))
@@ -201,6 +201,7 @@ def process(filename, max_pixels):
     cv2.imshow('image', tmp)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
+    print json.dumps(regions)
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:
@@ -211,4 +212,4 @@ if __name__ == '__main__':
         max_pixels = 150
     else:
         max_pixels = int(sys.argv[2])
-    cProfile.run("process('" + filename + "', " + str(max_pixels) + ")")
+    process(filename, max_pixels)
