@@ -5,7 +5,7 @@ import cProfile
 import Queue
 from pprint import pprint
 import sys
-import json
+
 
 COLORS = {
     'red': (255, 0, 0),
@@ -139,7 +139,7 @@ def get_neighbors(coord, shape):
     for i in range(-1, 2):
         if 0 <= coord[0] + i < shape[0]:
             for j in range(-1, 2):
-                if 0 <= coord[1] + j < shape[1]  and not (i == j and i == 0):
+                if 0 <= coord[1] + j < shape[1]:
                     neighbors.append((coord[0] + i, coord[1] + j))
     return neighbors
 
@@ -150,20 +150,23 @@ def find_color_regions(image):
     q = Queue.Queue()
     for i in range(image.shape[0]):
         for j in range(image.shape[1]):
-            if visited[i, j] == 255 or image[i, j] == 0:
+            if image[i, j] == 0 or visited[i, j] == 255:
                 continue
             visited[i, j] = 255
             q.put((i, j))
+            color = get_color_from_pixel(image[i, j])
+            if color not in res:
+                res[color] = []
             region = []
             while not q.empty():
                 cur = q.get()
                 region.append(cur)
                 neighbors = get_neighbors(cur, image.shape)
                 for neighbor in neighbors:
-                    if visited[neighbor] == 0 and image[neighbor] == 255:
+                    if visited[neighbor] == 0 and np.array_equal(image[cur], image[neighbor]):
                         visited[neighbor] = 255
                         q.put(neighbor)
-            res.append(region)
+            res[color].append(region)
     return res
 
 
@@ -184,93 +187,20 @@ def restore_image(regions, image):
                 res[pixel] = pix_val
     return res
             
-def find_color_regions(image):
-    res = []
-    visited = np.zeros(image.shape[:2], np.uint8)
-    q = Queue.Queue()
-    for i in range(image.shape[0]):
-        for j in range(image.shape[1]):
-            if image[i, j] == 0 or visited[i, j] == 255:
-                continue
-            visited[i, j] = 255
-            q.put((i, j))
-            region = []
-            while not q.empty():
-                cur = q.get()
-                region.append(cur)
-                neighbors = get_neighbors(cur, image.shape)
-                for neighbor in neighbors:
-                    if visited[neighbor] == 0 and image[neighbor] == 255:
-                        visited[neighbor] = 255
-                        q.put(neighbor)
-            res.append(region)
-    return res
 
-def distance(a, b):
-    return np.sqrt((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2)
-
-def path_dist(path):
-    dist = 0
-    for i in range(len(path) - 1):
-        dist += distance(path[0], path[1])
-    return dist
-
-def rotate(l, n):
-    return l[n:] + l[:n]
-
-def two_opt(path, img):
-    for i in range(len(path) - 2):
-        for j in range(i + 1, len(path) - 1):
-            if distance(path[i], path[i + 1]) + distance(path[j], path[j + 1]) > distance(path[i], path[j]) + distance(path[i + 1], path[j + 1]):
-                tmp = path[i + 1]
-                path[i + 1] = path[j]
-                path[j] = tmp
-                path[i + 2 : j] = reversed(path[i + 2:j])
-    res = []
-    for i in range(1, len(path)):
-        if len(res) == 0 or distance(res[-1][-1], path[i]) >= 1.5:
-            res.append([])
-        res[-1].append(path[i])
-    res = [x for x in res if len(x) >= 2]
-    return res
-
-def coord_to_cm(coord, shape):
-    scale = 8.0 / max(shape)
-    return (coord[0] * scale, coord[1] * scale)
-
-    
 
 def process(filename, max_pixels):
     img = cv2.imread(filename)
     dst_size = get_output_size(img, max_pixels)
     img = cv2.resize(img, dst_size)
     orig = deepcopy(img)
-    img = cv2.GaussianBlur(img, (0, 0), 1.3)
-    tmp = cv2.Canny(img, 255/3,  255)
-    res = find_color_regions(tmp)
-    edges = []
-    for edge in res:
-        edges.extend(two_opt(edge, tmp))
-    res2 = []
-    for edge in edges:
-        edge = cv2.approxPolyDP(np.array(edge), max_pixels / 75.0, False)
-        res2.append(edge)
-    tmp2 = get_black_image(img)
-    for i in range(len(res2)):
-        for point in res2[i]:
-            temp = point[0, 0]
-            point[0, 0] = point[0, 1]
-            point[0, 1] = temp
-        cv2.polylines(tmp2, res2, False, 255)
-    cv2.imshow('edges', tmp)
-    cv2.imshow('simplified', tmp2)
+    img = cv2.GaussianBlur(img, (0, 0), 1)
+    reduce_colors(img)
+    regions = find_color_regions(img)
+    tmp = restore_image(regions, img)
+    cv2.imshow('image', tmp)
     cv2.waitKey(0)
-    final = []
-    for edge in res2:
-        final.append([])
-        for point in edge:
-            final[-1].append(coord_to_cm(point[0], tmp2.shape))
-    print json.dumps(final)
+    cv2.destroyAllWindows()
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:
@@ -281,4 +211,4 @@ if __name__ == '__main__':
         max_pixels = 150
     else:
         max_pixels = int(sys.argv[2])
-    process(filename, max_pixels)
+    cProfile.run("process('" + filename + "', " + str(max_pixels) + ")")
