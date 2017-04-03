@@ -189,6 +189,22 @@ def restore_image(regions, image):
             
 
 
+def draw_grid(blob, image):
+    black = get_black_image(image)
+    for point in blob:
+        black[point] = 255
+    visted = deepcopy(black)
+    spacing = max(black.shape) / 10
+    points = []
+    for pixel in blob:
+        if pixel[0] % spacing == 0 and pixel[1] % spacing == 0:
+            points.append(pixel)
+    for point in points:
+
+
+
+
+
 def process(filename, max_pixels):
     img = cv2.imread(filename)
     dst_size = get_output_size(img, max_pixels)
