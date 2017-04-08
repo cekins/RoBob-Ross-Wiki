@@ -187,22 +187,57 @@ def restore_image(regions, image):
                 res[pixel] = pix_val
     return res
             
+def get_grid_neighbors(point, shape, spacing):
+    res = []
+    if point[0] - spacing >= 0:
+        res.append((point[0] - spacing, point[1]))
+    if point[0] + spacing < shape[0]:
+        res.append((point[0] + spacing, point[1]))
+    if point[1] - spacing >= 0:
+        res.append((point[0], point[1] - spacing))
+    if point[1] + spacing < shape[1]:
+        res.append((point[0], point[1] + spacing))
+    return res
 
-
-def draw_grid(blob, image):
+def draw_grid(blob, image, color):
     black = get_black_image(image)
     for point in blob:
         black[point] = 255
     visted = deepcopy(black)
-    spacing = max(black.shape) / 10
+    spacing = max(black.shape) / 100
     points = []
     for pixel in blob:
         if pixel[0] % spacing == 0 and pixel[1] % spacing == 0:
             points.append(pixel)
     for point in points:
+        neighbors = get_grid_neighbors(point, image.shape, spacing)
+        for neighbor in neighbors:
+            if black[neighbor] == 255:
+                cv2.line(image, (point[1], point[0]),  (neighbor[1], neighbor[0]), color)
 
 
+class Rectangle:
+    def __init__(self, top_left, bottom_right):
+        self.top_left = top_left
+        self.bottom_right = bottom_right
 
+def get_squares(image, spacing):
+    res = []
+    for i in range(0, image.shape[0] - spacing, spacing):
+        for j in range(0, image.shape[1] - spacing, spacing):
+            if image[i, j] == image[i + spacing, j] == image[i, j + spacing] == image[i + spacing, j + spacing]:
+                res += Rectangle((i, j), (i + spacing, j + spacing))
+
+def combinable(r1, r2):
+    x = r1.top_left[0]
+    if r2.top_left[0] == x:
+        return 
+
+def combine_squares(squares):
+    combined = True
+    while combined:
+        for i in range(len(squares) - 1):
+            for j in range(i + 1, len(square)):
 
 
 def process(filename, max_pixels):
@@ -213,11 +248,14 @@ def process(filename, max_pixels):
     img = cv2.GaussianBlur(img, (0, 0), 1)
     reduce_colors(img)
     regions = find_color_regions(img)
-    tmp = restore_image(regions, img)
+    tmp = get_black_color_image(img)
+    for color in regions:
+        for region in regions[color]:
+            draw_grid(region, tmp, COLORS[color])
     cv2.imshow('image', tmp)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
-    print json.dumps(regions)
+    #print json.dumps(regions)
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:
