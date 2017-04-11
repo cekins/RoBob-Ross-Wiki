@@ -143,7 +143,8 @@ def get_neighbors(coord, shape):
                     neighbors.append((coord[0] + i, coord[1] + j))
     return neighbors
 
-
+# Get a dictionary mapping each color to a list of regions of that color,
+# where each region is a list of contiguous pixels that have that color.
 def find_color_regions(image):
     res = {}
     visited = np.zeros(image.shape[:2], np.uint8)
@@ -199,7 +200,73 @@ def get_grid_neighbors(point, shape, spacing):
         res.append((point[0], point[1] + spacing))
     return res
 
-def draw_grid(blob, image, color):
+class GraphNode:
+    def __init__(self, position, color):
+        self.position = position
+        self.color = color
+        self.neighbors = []
+
+class Graph:
+    def __init__(self):
+        self.nodes = []
+        self.graph_dict = {}
+
+    def __str__(self):
+        res = ''
+        for i in range(len(self.nodes)):
+            res += str(self.nodes[i].position) + ': '
+            for j in self.nodes[i].neighbors:
+                res += str(self.nodes[j].position) + ', '
+            res += '\n'
+        return res
+
+    def add_line(self, point1, point2, color):
+        if point1 not in self.graph_dict:
+            self.graph_dict[point1] = len(self.nodes)
+            self.nodes.append(GraphNode(point1, color))
+        if point2 not in self.graph_dict:
+            self.graph_dict[point2] = len(self.nodes)
+            self.nodes.append(GraphNode(point2, color))
+        node1 = self.nodes[self.graph_dict[point1]]
+        node2 = self.nodes[self.graph_dict[point2]]
+        node1.neighbors.append(self.graph_dict[point2])
+        node2.neighbors.append(self.graph_dict[point1])
+
+    def rem_dups(self):
+        for i in self.nodes:
+            i.neighbors = list(set(i.neighbors))
+
+    def dfs(self, current, visited, target, cycles):
+        visited.append(self.nodes[current].position)
+        if current == target and len(visited) == 4:
+            cycles.append(deepcopy(visited))
+            del visited[-1]
+            return
+        if len(visited) >= 4:
+            del visited[-1]
+            return
+        k = 0
+        for i in self.nodes[current].neighbors:
+            if i == target:
+                print len(visited)
+            if self.nodes[i].position not in visited or (i == target and len(visited) == 3):   
+                self.dfs(i, visited, target, cycles)
+        del visited[-1]
+
+    def get_cycles(self):
+        cycles = {}
+        for i in range(len(self.nodes)):
+            node = self.nodes[i]
+            if node.color not in cycles:
+               cycles[node.color] = []
+            these_cycles = []
+            self.dfs(i, [], i, these_cycles)
+            if len(these_cycles) > 0:
+                cycles[node.color].append(these_cycles)
+        return cycles
+
+def draw_grid(blob, image, color, graph):
+    color_name = get_color_from_pixel(color)
     black = get_black_image(image)
     for point in blob:
         black[point] = 255
@@ -214,30 +281,8 @@ def draw_grid(blob, image, color):
         for neighbor in neighbors:
             if black[neighbor] == 255:
                 cv2.line(image, (point[1], point[0]),  (neighbor[1], neighbor[0]), color)
+                graph.add_line(point, neighbor, color_name)
 
-
-class Rectangle:
-    def __init__(self, top_left, bottom_right):
-        self.top_left = top_left
-        self.bottom_right = bottom_right
-
-def get_squares(image, spacing):
-    res = []
-    for i in range(0, image.shape[0] - spacing, spacing):
-        for j in range(0, image.shape[1] - spacing, spacing):
-            if image[i, j] == image[i + spacing, j] == image[i, j + spacing] == image[i + spacing, j + spacing]:
-                res += Rectangle((i, j), (i + spacing, j + spacing))
-
-def combinable(r1, r2):
-    x = r1.top_left[0]
-    if r2.top_left[0] == x:
-        return 
-
-def combine_squares(squares):
-    combined = True
-    while combined:
-        for i in range(len(squares) - 1):
-            for j in range(i + 1, len(square)):
 
 
 def process(filename, max_pixels):
@@ -249,9 +294,13 @@ def process(filename, max_pixels):
     reduce_colors(img)
     regions = find_color_regions(img)
     tmp = get_black_color_image(img)
+    graph = Graph()
     for color in regions:
         for region in regions[color]:
-            draw_grid(region, tmp, COLORS[color])
+            draw_grid(region, tmp, COLORS[color], graph)
+    graph.rem_dups()
+    cycles = graph.get_cycles()
+    pprint(cycles)
     cv2.imshow('image', tmp)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
