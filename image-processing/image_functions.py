@@ -18,6 +18,10 @@ COLORS = {
       'orange': (255, 165, 0)
 }
 
+STROKE_WIDTH_CM = 0.5
+
+IMAGE_SIZE_CM = 10.0
+
 def get_color_from_pixel(pixel):
     for color in COLORS:
         if np.array_equal(pixel, COLORS[color]):
@@ -228,7 +232,6 @@ def process_squares(filename, max_pixels):
     reduce_colors(img)
     regions = find_color_regions(img)
     tmp = get_black_color_image(img)
-    graph = Graph()
     for color in regions:
         for region in regions[color]:
             draw_grid(region, tmp, COLORS[color], graph)
@@ -299,7 +302,17 @@ def coord_to_cm(coord, shape):
     scale = 8.0 / max(shape)
     return (coord[0] * scale, coord[1] * scale)
 
-    
+def get_strokes(filename, max_pixels):
+    img = cv2.imread(filename)
+    img = img.resize(img, get_output_size(max_pixels))
+    if img.shape[1] > img.shape[0]:
+        height = IMAGE_SIZE_CM / ((image.shape[1] + 0.0) / image.shape[0])
+    else:
+        height = IMAGE_SIZE_CM
+    num_lines = height / STROKE_WIDTH_CM
+    stroke_width_pixels = 
+    for i 
+  
 
 def processEdges(filename, max_pixels):
     img = cv2.imread(filename)
