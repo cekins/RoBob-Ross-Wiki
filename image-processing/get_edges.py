@@ -10,4 +10,4 @@ if __name__ == '__main__':
         max_pixels = 150
     else:
         max_pixels = int(sys.argv[2])
-    processEdges(filename, max_pixels)
+    edges = process_edges(filename, max_pixels)

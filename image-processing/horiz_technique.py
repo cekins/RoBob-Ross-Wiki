@@ -1,5 +1,6 @@
 import sys
 from image_functions import *
+import cv2
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:
@@ -10,4 +11,8 @@ if __name__ == '__main__':
         max_pixels = 150
     else:
         max_pixels = int(sys.argv[2])
+    res, img = get_strokes(filename, max_pixels)
+    img2 = apply_stroke_pattern(res, img)
+    cv2.imshow('image', img)
+    cv2.waitKey(0)
 

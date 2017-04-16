@@ -2,31 +2,52 @@ import cv2
 import numpy as np
 from copy import deepcopy
 import Queue
+import json
 COLORS = {
-      'red': (255, 0, 0),
-      'blue': (0, 0, 255),
+      'red'   : (255, 0, 0),
+      'blue'  : (0, 0, 255),
       'yellow': (255, 255, 0),
-      'gray': (128, 128, 128),
-      'lime': (0, 255, 0),
-      'green': (0, 128, 0),
+      'gray'  : (128, 128, 128),
+      'lime'  : (0, 255, 0),
+      'green' : (0, 128, 0),
       'purple': (128, 0, 128),
-      'navy': (0, 0, 128),
-      'white': (255, 255, 255),
-      'black': (0, 0, 0),
-      'cyan': (0, 255, 255),
-      'teal': (0, 128, 128),
+      'navy'  : (0, 0, 128),
+      'white' : (255, 255, 255),
+      'black' : (0, 0, 0),
+      'cyan'  : (0, 255, 255),
+      'teal'  : (0, 128, 128),
       'orange': (255, 165, 0)
 }
+
+COLORS_INV = {
+      (255, 0, 0):           'red',   
+      (0, 0, 255):           'blue',
+      (255, 255, 0):         'yellow',
+      (128, 128, 128):       'gray',
+      (0, 255, 0):           'lime', 
+      (0, 128, 0):           'green', 
+      (128, 0, 128):         'purple',
+      (0, 0, 128):           'navy',
+      (255, 255, 255):       'white', 
+      (0, 0, 0):             'black',
+      (0, 255, 255):         'cyan',
+      (0, 128, 128):         'teal', 
+      (255, 165, 0):         'orange'
+}
+
+
+
+
+
+
+
 
 STROKE_WIDTH_CM = 0.5
 
 IMAGE_SIZE_CM = 10.0
 
 def get_color_from_pixel(pixel):
-    for color in COLORS:
-        if np.array_equal(pixel, COLORS[color]):
-            return color
-    return color
+    return COLORS_INV[pixel]
 
 # gets the Euclidian distance between two colors
 def get_distance(color1, color2):
@@ -304,24 +325,60 @@ def coord_to_cm(coord, shape):
 
 def get_strokes(filename, max_pixels):
     img = cv2.imread(filename)
-    img = img.resize(img, get_output_size(max_pixels))
+    img = cv2.resize(img, get_output_size(img, max_pixels))
+    reduce_colors(img)
     if img.shape[1] > img.shape[0]:
-        height = IMAGE_SIZE_CM / ((image.shape[1] + 0.0) / image.shape[0])
+        height_cm = IMAGE_SIZE_CM / ((img.shape[1] + 0.0) / img.shape[0])
     else:
-        height = IMAGE_SIZE_CM
-    num_lines = height / STROKE_WIDTH_CM
-    stroke_width_pixels = 
-    for i 
+        height_cm = IMAGE_SIZE_CM
+    pixels_per_cm = img.shape[0] / height_cm
+    pixels_per_stroke = int(pixels_per_cm * STROKE_WIDTH_CM)
+    start = pixels_per_stroke / 2
+    cur_start = (start, 0)
+    cur_color = img[start, 0]
+    res = {}
+    for i in range(start, img.shape[0], pixels_per_stroke):
+        cur_start = (i, 0)
+        for j in range(img.shape[1]):
+            if not np.array_equal(cur_color, img[i, j]):
+                color_name = get_color_from_pixel(tuple(cur_color))
+                if color_name not in res:
+                    res[color_name] = []
+                res[color_name].append((cur_start, (i, j)))
+                cur_start = (i, j)
+        color_name = get_color_from_pixel(tuple(cur_color))
+        if color_name not in res:
+            res[color] = []
+        res[color_name].append((cur_start, (i, j)))
+    return res, img
+
+
+
+ 
   
 
-def processEdges(filename, max_pixels):
-    img = cv2.imread(filename)
-    dst_size = get_output_size(img, max_pixels)
-    img = cv2.resize(img, dst_size)
-    orig = deepcopy(img)
-    img = cv2.GaussianBlur(img, (0, 0), 1.3)
-    tmp = cv2.Canny(img, 255/3,  255)
-    res = find_white_regions(tmp)
+def apply_stroke_pattern(pattern, image):
+    if image.shape[1] > image.shape[0]:
+        height_cm = IMAGE_SIZE_CM / ((image.shape[1] + 0.0) / image.shape[0])
+    else:
+        height_cm = IMAGE_SIZE_CM
+    pixels_per_cm = image.shape[0] / height_cm
+    img = get_black_color_image(image)
+    for color in pattern:
+        for seg in pattern[color]:
+            cv2.line(img, seg[0], seg[1], COLORS[color], int(pixels_per_cm * STROKE_WIDTH_CM))
+    return pattern                                         
+                                                           
+                                                           
+                                                           
+def process_edges(filename, max_pixels):                    
+    img = cv2.imread(filename)                             
+    dst_size = get_output_size(img, max_pixels)            
+    img = cv2.resize(img, dst_size)                        
+    orig = deepcopy(img)                                   
+    img = cv2.GaussianBlur(img, (0, 0), 1.3)               
+    tmp = cv2.Canny(img, 255/3,  255)                      
+    res = find_white_regions(tmp)                          
     edges = []
     for edge in res:
         edges.extend(two_opt(edge, tmp))
@@ -335,14 +392,10 @@ def processEdges(filename, max_pixels):
             temp = point[0, 0]
             point[0, 0] = point[0, 1]
             point[0, 1] = temp
-        cv2.polylines(tmp2, res2, False, 255)
-    cv2.imshow('edges', tmp)
-    cv2.imshow('simplified', tmp2)
-    cv2.waitKey(0)
     final = []
     for edge in res2:
         final.append([])
         for point in edge:
             final[-1].append(coord_to_cm(point[0], tmp2.shape))
-    print json.dumps(final)
+    return final
 
